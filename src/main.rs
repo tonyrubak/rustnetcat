@@ -8,7 +8,6 @@ use std::str;
 use std::thread;
 use getopts::Options;
 
-const BUFFER_SIZE: usize = 8192;
 const READ_SIZE: usize = 4096;
 
 #[derive(Clone)]
@@ -101,16 +100,6 @@ fn main() {
     else if prog_opts.listen {
         server_loop(prog_opts);
     }
-}
-
-fn vec_to_arr(vector: Vec<u8>, arr: &mut [u8;BUFFER_SIZE]) -> usize {
-    let size = if vector.len() > BUFFER_SIZE {
-        BUFFER_SIZE
-    } else { vector.len() };
-    for i in 0..(size - 1) {
-        arr[i] = vector[i];
-    }
-    return size;
 }
 
 fn client_sender(mut s: String, options: ProgOptions) {
