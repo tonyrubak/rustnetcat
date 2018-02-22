@@ -3,7 +3,7 @@ extern crate getopts;
 use std::env;
 use std::io::{self, Read};
 use std::io::prelude::*;
-use std::net::TcpStream;
+use std::net::{TcpStream, TcpListener};
 use std::str;
 use std::thread;
 use getopts::Options;
@@ -156,8 +156,8 @@ fn client_sender(buffer: Vec<u8>, options: ProgOptions) {
 
 fn server_loop(options: ProgOptions) {
     let target = if options.target.len() == 0 {
-        String::from("0.0.0.0")
-    } else { options.target };
+        "0.0.0.0"
+    } else { &options.target[..] };
 
     let listener = TcpListener::bind((target, options.port)).unwrap();
 
