@@ -159,8 +159,10 @@ fn client_sender(buffer: Vec<u8>, options: ProgOptions) {
 fn client_handler(mut stream: TcpStream, options: ProgOptions) {
     if options.command {
         loop {
-            stream.write(b"<RUNET:#> ");
-            break;
+            match stream.write(b"<RUNET:#> ") {
+                Ok(_) => { break }
+                Err(_) => { break }
+            };
         }
     }
 }
