@@ -4,6 +4,7 @@ use std::env;
 use std::io::{self, BufReader, Read};
 use std::io::prelude::*;
 use std::net::{TcpStream, TcpListener};
+use std::process;
 use std::str;
 use std::thread;
 use getopts::Options;
@@ -149,6 +150,19 @@ fn client_sender(mut s: String, options: ProgOptions) {
     }
 }
 
+fn run_command(command: &str) -> std::process::Output {
+    let (cmd_str, args) = match command.find(" ") {
+        Some(n) => command.split_at(n),
+        None => (command, "")
+    };
+
+    // let cmd_args = if args.len() > 0 {
+        // args.split_whitespace().collect()
+    // } else { [""] };
+    
+    return std::process::Command::new(cmd_str).args(args.split_whitespace()).output().expect("Command failed to start");
+}
+
 fn client_handler(mut stream: TcpStream, options: ProgOptions) {
     println!("Client connected.");
     let mut resp_str = String::new();
@@ -157,12 +171,14 @@ fn client_handler(mut stream: TcpStream, options: ProgOptions) {
             match stream.write(b"<RUNET:#> ") {
                 Ok(_) => {
                     /* Read response from client */
-                    let mut reader = BufReader::new(&stream);
-                    let read_size = match reader.read_line(&mut resp_str) {
-                        Ok(n) => { n }
-                        Err(e) => { eprintln!("Something bad happened: {}", e); return; }
-                    };
-                    print!("{bytes}: {s}", bytes = read_size, s = resp_str);
+                    {
+                        let mut reader = BufReader::new(&stream);
+                        let read_size = match reader.read_line(&mut resp_str) {
+                            Ok(n) => { n }
+                            Err(e) => { eprintln!("Something bad happened: {}", e); return; }
+                        };
+                    }
+                    stream.write(&(run_command(resp_str.trim()).stdout));
                     resp_str.clear();
                 }
                 Err(e) => { eprintln!("Something went wrong writing to the client: {}", e); return; }
