@@ -143,7 +143,8 @@ fn client_sender(buffer: Vec<u8>, options: ProgOptions) {
         /* Receive data from the server */
         let mut resp_arr = [0u8; READ_SIZE];
         let response = stream.read(&mut resp_arr);
-        println!("{}", str::from_utf8(&resp_arr).unwrap());
+        print!("{}", str::from_utf8(&resp_arr[..response.unwrap()]).unwrap());
+        io::stdout().flush();
 
         /* Read more data to send to server */
         let stdin = io::stdin();
