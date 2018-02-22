@@ -138,9 +138,16 @@ fn client_sender(mut s: String, options: ProgOptions) {
         
         /* Receive data from the server */
         let mut resp_arr = [0u8; READ_SIZE];
-        let response = stream.read(&mut resp_arr);
-        print!("{}", str::from_utf8(&resp_arr[..response.unwrap()]).unwrap());
-        let _ = io::stdout().flush();
+        match stream.read(&mut resp_arr) {
+            Ok(resp_sz) => {
+                print!("{}", str::from_utf8(&resp_arr[..resp_sz]).unwrap());
+                let _ = io::stdout().flush();
+            }
+            Err(e) => {
+                eprintln!("Something went wrong reading from server: {}", e);
+                return;
+            }
+        };
 
         /* Read more data to send to server */
         let stdin = io::stdin();
