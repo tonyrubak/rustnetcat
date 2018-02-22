@@ -156,10 +156,6 @@ fn run_command(command: &str) -> std::process::Output {
         None => (command, "")
     };
 
-    // let cmd_args = if args.len() > 0 {
-        // args.split_whitespace().collect()
-    // } else { [""] };
-    
     return std::process::Command::new(cmd_str).args(args.split_whitespace()).output().expect("Command failed to start");
 }
 
