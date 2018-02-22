@@ -156,6 +156,15 @@ fn client_sender(buffer: Vec<u8>, options: ProgOptions) {
     }
 }
 
+fn client_handler(mut stream: TcpStream, options: ProgOptions) {
+    if options.command {
+        loop {
+            stream.write(b"<RUNET:#> ");
+            break;
+        }
+    }
+}
+
 fn server_loop(options: ProgOptions) {
     let target = if options.target.len() == 0 {
         "0.0.0.0"
@@ -166,7 +175,8 @@ fn server_loop(options: ProgOptions) {
     for stream in listener.incoming() {
         match stream {
             Ok(stream) => {
-
+                let opts = options.clone();
+                thread::spawn(move || client_handler(stream, opts));
             }
             Err(_ ) => {}
         }
