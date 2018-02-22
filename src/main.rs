@@ -11,6 +11,7 @@ use getopts::Options;
 const BUFFER_SIZE: usize = 8192;
 const READ_SIZE: usize = 4096;
 
+#[derive(Clone)]
 struct ProgOptions {
     listen: bool,
     command: bool,
