@@ -1,7 +1,7 @@
 extern crate getopts;
 
 use std::env;
-use std::io::{self, Read};
+use std::io::{self, BufReader, Read};
 use std::io::prelude::*;
 use std::net::{TcpStream, TcpListener};
 use std::str;
@@ -89,13 +89,13 @@ fn main() {
 
     /* If we are not listening then we will read from stdin and write to the target */
     if !prog_opts.listen && prog_opts.target.len() > 0 && prog_opts.port > 0 {
-        let mut buffer = Vec::new();
+        let mut s = String::new();
         let stdin = io::stdin();
         {
             let mut handle = stdin.lock();
-            let _ = handle.read_to_end(&mut buffer);
+            let _ = handle.read_line(&mut s);
         }
-        client_sender(buffer, prog_opts);
+        client_sender(s, prog_opts);
     }
 
     else if prog_opts.listen {
@@ -113,8 +113,7 @@ fn vec_to_arr(vector: Vec<u8>, arr: &mut [u8;BUFFER_SIZE]) -> usize {
     return size;
 }
 
-fn client_sender(buffer: Vec<u8>, options: ProgOptions) {
-    let mut mbuffer = buffer.clone();
+fn client_sender(mut s: String, options: ProgOptions) {
     let mut stream = match TcpStream::connect((&options.target[..], options.port)) {
         Ok(s) => {
             s
@@ -128,11 +127,8 @@ fn client_sender(buffer: Vec<u8>, options: ProgOptions) {
 
     loop {
         /* Transmit data to the server */
-        while sent < mbuffer.len() {
-            let mut arr = [0u8; BUFFER_SIZE];
-            let _ = vec_to_arr(mbuffer[sent..].to_vec(), &mut arr);
-            
-            let sz = match stream.write(&arr) {
+        while sent < s.len() {
+            let sz = match stream.write(s[sent..].as_bytes()) {
                 Ok(n) => n,
                 Err(_) => { panic!("Failed to send data.") }
             };
@@ -149,8 +145,9 @@ fn client_sender(buffer: Vec<u8>, options: ProgOptions) {
         /* Read more data to send to server */
         let stdin = io::stdin();
         {
+            s = String::new();
             let mut handle = stdin.lock();
-            let _ = handle.read_to_end(&mut mbuffer);
+            let _ = handle.read_line(&mut s);
         }
         sent = 0;
     }
