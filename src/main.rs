@@ -4,7 +4,7 @@ use std::env;
 use std::io::{self, BufReader, Read};
 use std::io::prelude::*;
 use std::net::{TcpStream, TcpListener};
-use std::process;
+use std::process::Command;
 use std::str;
 use std::thread;
 use getopts::Options;
@@ -150,13 +150,18 @@ fn client_sender(mut s: String, options: ProgOptions) {
     }
 }
 
-fn run_command(command: &str) -> std::process::Output {
+fn run_command(command: &str) -> String {
     let (cmd_str, args) = match command.find(" ") {
         Some(n) => command.split_at(n),
         None => (command, "")
     };
 
-    return std::process::Command::new(cmd_str).args(args.split_whitespace()).output().expect("Command failed to start");
+    let output = match Command::new(cmd_str).args(args.split_whitespace()).output() {
+        Ok(o) => { String::from_utf8(o.stdout).unwrap() }
+        Err(_) => { String::from("Command failed to start\n") }
+    };
+
+    return output;
 }
 
 fn client_handler(mut stream: TcpStream, options: ProgOptions) {
@@ -169,12 +174,12 @@ fn client_handler(mut stream: TcpStream, options: ProgOptions) {
                     /* Read response from client */
                     {
                         let mut reader = BufReader::new(&stream);
-                        let read_size = match reader.read_line(&mut resp_str) {
+                        let _ = match reader.read_line(&mut resp_str) {
                             Ok(n) => { n }
                             Err(e) => { eprintln!("Something bad happened: {}", e); return; }
                         };
                     }
-                    stream.write(&(run_command(resp_str.trim()).stdout));
+                    let _ = stream.write((run_command(resp_str.trim())).as_bytes());
                     resp_str.clear();
                 }
                 Err(e) => { eprintln!("Something went wrong writing to the client: {}", e); return; }
