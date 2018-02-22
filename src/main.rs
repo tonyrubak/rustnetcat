@@ -154,11 +154,22 @@ fn client_sender(mut s: String, options: ProgOptions) {
 }
 
 fn client_handler(mut stream: TcpStream, options: ProgOptions) {
+    println!("Client connected.");
+    let mut resp_str = String::new();
     if options.command {
         loop {
             match stream.write(b"<RUNET:#> ") {
-                Ok(_) => { break }
-                Err(_) => { break }
+                Ok(_) => {
+                    /* Read response from client */
+                    let mut reader = BufReader::new(&stream);
+                    let read_size = match reader.read_line(&mut resp_str) {
+                        Ok(n) => { n }
+                        Err(e) => { eprintln!("Something bad happened: {}", e); return; }
+                    };
+                    print!("{bytes}: {s}", bytes = read_size, s = resp_str);
+                    resp_str.clear();
+                }
+                Err(e) => { eprintln!("Something went wrong writing to the client: {}", e); return; }
             };
         }
     }
