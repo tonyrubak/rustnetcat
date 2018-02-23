@@ -89,13 +89,7 @@ fn main() {
 
     /* If we are not listening then we will read from stdin and write to the target */
     if !prog_opts.listen && prog_opts.target.len() > 0 && prog_opts.port > 0 {
-        let mut s = String::new();
-        let stdin = io::stdin();
-        {
-            let mut handle = stdin.lock();
-            let _ = handle.read_line(&mut s);
-        }
-        client_sender(s, prog_opts);
+        client_sender(prog_opts);
     }
 
     else if prog_opts.listen {
@@ -103,7 +97,15 @@ fn main() {
     }
 }
 
-fn client_sender(mut s: String, options: ProgOptions) {
+fn client_sender(options: ProgOptions) {
+    let stdin = io::stdin();
+    let mut buffer: Vec<u8> = Vec::new(); // Build a buffer to send to the server
+
+    {
+        let mut handle = stdin.lock();
+        let _ = handle.read_to_end(&mut buffer);
+    }
+    
     let mut stream = match TcpStream::connect((&options.target[..], options.port)) {
         Ok(s) => {
             s
@@ -113,18 +115,9 @@ fn client_sender(mut s: String, options: ProgOptions) {
         }
     };
 
-    let mut sent: usize = 0;
-
     loop {
         /* Transmit data to the server */
-        while sent < s.len() {
-            let sz = match stream.write(s[sent..].as_bytes()) {
-                Ok(n) => n,
-                Err(_) => { panic!("Failed to send data.") }
-            };
-            
-            sent += sz;
-        }
+        let _ = stream.write_all(&buffer);
         
         /* Receive data from the server */
         let mut resp_arr = [0u8; READ_SIZE];
@@ -140,13 +133,12 @@ fn client_sender(mut s: String, options: ProgOptions) {
         };
 
         /* Read more data to send to server */
-        let stdin = io::stdin();
+
         {
-            s = String::new();
+            buffer.clear();
             let mut handle = stdin.lock();
-            let _ = handle.read_line(&mut s);
+            let _ = handle.read_to_end(&mut buffer);
         }
-        sent = 0;
     }
 }
 
@@ -167,9 +159,42 @@ fn run_command(command: &str) -> String {
 fn client_handler(mut stream: TcpStream, options: ProgOptions) {
     println!("Client connected.");
     let mut resp_str = String::new();
-    if options.command {
+
+    if options.upload {
+        let _ = stream.set_read_timeout(Some(std::time::Duration::new(10,0)));
+        let mut read_buffer =[0u8; READ_SIZE];
+        let mut file_buffer: Vec<u8> = Vec::new();
+
         loop {
-            match stream.write(b"<RUNET:#> ") {
+            let read_sz = match stream.read(&mut read_buffer) {
+                Ok(n) => n,
+                Err(_) => { 0 }
+            };
+
+            let _ = println!("Read {} bytes", read_sz);
+
+            if read_sz > 0 { file_buffer.append(&mut read_buffer.iter().cloned().collect()); }
+            else { break; }
+        }
+            
+
+        let mut f = std::fs::File::create(std::path::Path::new(options.upload_dest.as_str())).expect("Unable to create file");
+        let _ = match f.write_all(&file_buffer) {
+            Ok(_) => { stream.write(b"Wrote file\n") }
+            Err(_) => { stream.write(b"Unable to write file\n") }
+        };
+    }
+
+    /* If -e was requested at the command prompt we will execute the given command and present the results to the client */
+    if options.execute.len() > 0 {
+        let _ = stream.write(run_command(&options.execute).as_bytes());
+    }
+
+    /* If -c was requested at the command prompt we will present a command shell to the client and execute commands */
+    if options.command {
+        let _ = stream.set_read_timeout(None);
+        loop {
+            match stream.write(b"\n<RUNET:#> ") {
                 Ok(_) => {
                     /* Read response from client */
                     {
@@ -179,7 +204,7 @@ fn client_handler(mut stream: TcpStream, options: ProgOptions) {
                             Err(e) => { eprintln!("Something bad happened: {}", e); return; }
                         };
                     }
-                    let _ = stream.write((run_command(resp_str.trim())).as_bytes());
+                    let _ = stream.write(run_command(resp_str.trim()).as_bytes());
                     resp_str.clear();
                 }
                 Err(e) => { eprintln!("Something went wrong writing to the client: {}", e); return; }
